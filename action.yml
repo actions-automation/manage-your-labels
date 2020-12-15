@@ -1,0 +1,16 @@
+name: organization-labels
+description: Label management across organization repositories
+
+branding:
+  icon: zap
+  color: gray-dark
+
+runs:
+  using: "composite"
+  steps:
+    - run:
+      shell: bash
+    - run: bash -c "env | sort"
+      shell: bash
+    - run: cat $GITHUB_EVENT_PATH
+      shell: bash
