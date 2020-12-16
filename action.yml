@@ -8,7 +8,7 @@ branding:
 runs:
   using: "composite"
   steps:
-    - run:
+    - run: $GITHUB_ACTION_PATH/src/mirror-labels
       shell: bash
     - run: bash -c "env | sort"
       shell: bash

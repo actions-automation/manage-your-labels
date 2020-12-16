@@ -1,0 +1,296 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: Apache-2.0
+
+import githubgql
+
+import sys
+import os
+
+LABEL_GROUPS = {
+    # Applied to all repos...
+    None: {
+        'bug': {
+            'description': "Something isn't working",
+            'color': 'd73a4a',
+        },
+        'debt': {
+            'description': 'Issues to deal with later',
+            'color': '0c0c75',
+        },
+        'documentation': {
+            'description': 'Improvements or additions to documentation',
+            'color': 'efef15',
+        },
+        'duplicate': {
+            'description': 'This issue or pull request already exists',
+            'color': 'cfd3d7',
+        },
+        'enhancement': {
+            'description': 'New feature or request',
+            'color': 'a2eeef',
+        },
+        'expertise needed': {
+            'description': 'This needs special attention from an area specialist.',
+            'color': 'f9928e',
+        },
+        'good first issue': {
+            'description': 'Good for newcomers',
+            'color': 'a8f475',
+        },
+        'help wanted': {
+            'description': 'Extra attention is needed',
+            'color': '008672',
+        },
+
+        'invalid': {
+            'description': "This doesn't seem right",
+            'color': 'e4e669',
+        },
+        'meta': {
+            'description': 'Larger project tasks and goals',
+            'color': '149e7b',
+        },
+        'question': {
+            'description': 'Further information is requested',
+            'color': 'd876e3',
+        },
+        'research': {
+            'description': '',
+            'color': 'ed8661',
+        },
+        'security': {
+            'description': 'Issues that have security implications',
+            'color': 'ff0000',
+        },
+        'wontfix': {
+            'description': 'This will not be worked on',
+            'color': 'ffffff',
+        }
+    },
+    "technology": {
+        'amd sev': {
+            'description': 'Issues related to AMD SEV',
+            'color': '000000',
+        },
+        'ibm pef': {
+            'description': 'Issues related to IBM PEF',
+            'color': '0043ce',
+        },
+        'intel sgx': {
+            'description': 'Issues related to Intel SGX',
+            'color': '0071c5',
+        },
+        'wasm': {
+            'description': 'Issues related to WebAssembly',
+            'color': '654EF0',
+        },
+        'host-components': {
+            'description': 'Components that live on the host, but not in Keeps',
+            'color': 'f22933',
+        },
+        'syscall': {
+            'description': 'syscall-related issues and PRs',
+            'color': 'a51f3c',
+        },
+    },
+    "infrastructure": {
+        'infrastructure': {
+            'description': 'Improvements or additions to project infrastructure',
+            'color': 'ffdda8',
+        },
+    },
+    "conference": {
+        'conference': {
+            'description': 'Opportunities to talk about Enarx',
+            'color': 'f98918',
+        },
+    },
+    "mentorship": {
+        'mentorship': {
+            'description': 'A request for mentorship on the project.',
+            'color': '0e8a16',
+        },
+    },
+}
+
+REPOS = {
+    "enarx": [ "technology", "infrastructure", "conference", "mentorship" ],
+    "bot": [ "infrastructure" ],
+}
+
+QUERY = '''
+query($owner:String!, $reposCursor:String, $labelsCursor:String) {
+    organization(login:$owner) {
+        repositories(first:100, after:$reposCursor) {
+            pageInfo { endCursor hasNextPage }
+            nodes {
+                name
+                id
+                labels(first:100, after:$labelsCursor) {
+                    pageInfo { endCursor hasNextPage }
+                    nodes {
+                        name
+                        id
+                        color
+                        description
+                    }
+                }
+            }
+        }
+    }
+}
+'''
+
+cursors = {
+    "reposCursor": {
+        'path': ["organization", "repositories"],
+        'next': {
+            "labelsCursor": ["labels"]
+        }
+    }
+}
+
+UPDATE_LABEL = '''
+mutation($input: UpdateLabelInput!) {
+    updateLabel(input: $input) {
+        __typename
+    }
+}
+'''
+
+CREATE_LABEL = '''
+mutation($input: CreateLabelInput!) {
+    createLabel(input: $input) {
+        __typename
+    }
+}
+'''
+
+DELETE_LABEL = '''
+mutation($input: DeleteLabelInput!) {
+    deleteLabel(input: $input) {
+        __typename
+    }
+}
+'''
+
+if os.environ["GITHUB_EVENT_NAME"] != "schedule":
+    sys.exit(0)
+
+owner, repo = os.environ["GITHUB_REPOSITORY"].split("/")
+
+if repo != ".github":
+    print("""
+Label management must be performed from your user or organization's .github
+repo. If already enabled there, no more action is necessary.
+    """)
+    sys.exit(1)
+
+# Fetch repository data.
+try:
+    result = githubgql.graphql(QUERY, cursors=cursors, owner=owner)
+except githubgql.TokenError as e:
+    print(e.error)
+    sys.exit(0)
+
+print()
+print(" --- STARTING LABEL SYNC --- ")
+print()
+
+# Iterate through all repos controlled by the owner.
+for repo in result["organization"]["repositories"]["nodes"]:
+    # Construct the set of labels that should be on this repo.
+    current_labels = {}
+    try:
+        for group in REPOS[repo["name"]]:
+            current_labels.update(LABEL_GROUPS[group])
+    except:
+        pass
+    current_labels.update(LABEL_GROUPS[None])
+    current_labels_names = {l for l in current_labels.keys()}
+
+    # Get the existing set of labels on the repo.
+    existing_labels = {l["name"]: l for l in repo["labels"]["nodes"]}
+    existing_labels_names = {l for l in existing_labels.keys()}
+
+    # Construct a dictionary of old label names and their new names to be used
+    # in renaming.
+    all_old_names = {}
+    for k in current_labels_names:
+        for old_name in current_labels[k].get('old_names', []):
+            all_old_names[old_name] = k
+
+    # Find the set of labels on the repo that need to be renamed.
+    to_be_renamed = existing_labels_names & all_old_names.keys()
+
+    # Rename, if there are labels to be renamed.
+    if len(to_be_renamed) > 0:
+        for name in to_be_renamed:
+            print(f"{owner}/{repo['name']}: renaming label {name} to {all_old_names[name]}")
+            githubgql.graphql(UPDATE_LABEL, input={
+                    "id": existing_labels[name]["id"],
+                    "name": all_old_names[name]
+                }
+            )
+
+        # To prevent actions being taken on stale fetch data, defer
+        # further processing after renames happen (if they happen).
+        continue
+
+    # Construct sets of label names to use in processing.
+    labels_to_add = current_labels_names - existing_labels_names
+    labels_to_delete = existing_labels_names - current_labels_names
+    common_labels = existing_labels_names & current_labels_names
+
+    # Construct the set of common labels that need editing.
+    labels_to_edit = set()
+    for name in common_labels:
+        color = existing_labels[name]["color"] != current_labels[name]['color']
+        description = existing_labels[name]["description"] != current_labels[name]['description']
+
+        if color or description:
+            labels_to_edit.add(name)
+
+    # Print status before performing any changes
+    print(f"{owner}/{repo['name']}:", end="")
+    for label in sorted(current_labels_names | existing_labels_names):
+        state = ""
+        if label in labels_to_add:
+            state = "+"
+        if label in labels_to_delete:
+            state = "-"
+        if label in labels_to_edit:
+            state = "*"
+        print(f" {state}{label}", end="")
+    print()
+
+    # Add new labels, and delete unused ones.
+    for name in labels_to_add:
+        label_to_create = current_labels[name]
+        githubgql.graphql(CREATE_LABEL, input={
+                "id": repo["id"],
+                "name": name,
+                "color": label_to_create['color'],
+                "description": label_to_create['description']
+            }
+        )
+    for name in labels_to_delete:
+        id_to_delete = existing_labels[name]["id"]
+        githubgql.graphql(DELETE_LABEL, input={
+                "id": id_to_delete
+            }
+        )
+
+    # If a label needs to be edited, perform the edit.
+    for name in labels_to_edit:
+        githubgql.graphql(UPDATE_LABEL, input={
+                "id": existing_labels[name]["id"],
+                "name": name,
+                "color": current_labels[name]["color"],
+                "description": current_labels[name]['description']
+            }
+        )
+
+print()
+print(" --- LABEL SYNC COMPLETE --- ")
+print()

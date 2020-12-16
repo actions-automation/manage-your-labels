@@ -122,7 +122,7 @@ BOT_TOKEN.
     """)
 
     # Opt into preview API fields for PR merge status.
-    headers["Accept"] = "application/vnd.github.merge-info-preview+json"
+    headers["Accept"] = "application/vnd.github.bane-preview+json"
 
     # Do the request and check for HTTP errors.
     reply = requests.post(url, json=params, headers=headers)
