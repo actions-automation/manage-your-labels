@@ -3,120 +3,9 @@
 
 import githubgql
 
+import json
 import sys
 import os
-
-LABEL_GROUPS = {
-    # Applied to all repos...
-    None: {
-        'bug': {
-            'description': "Something isn't working",
-            'color': 'd73a4a',
-        },
-        'debt': {
-            'description': 'Issues to deal with later',
-            'color': '0c0c75',
-        },
-        'documentation': {
-            'description': 'Improvements or additions to documentation',
-            'color': 'efef15',
-        },
-        'duplicate': {
-            'description': 'This issue or pull request already exists',
-            'color': 'cfd3d7',
-        },
-        'enhancement': {
-            'description': 'New feature or request',
-            'color': 'a2eeef',
-        },
-        'expertise needed': {
-            'description': 'This needs special attention from an area specialist.',
-            'color': 'f9928e',
-        },
-        'good first issue': {
-            'description': 'Good for newcomers',
-            'color': 'a8f475',
-        },
-        'help wanted': {
-            'description': 'Extra attention is needed',
-            'color': '008672',
-        },
-
-        'invalid': {
-            'description': "This doesn't seem right",
-            'color': 'e4e669',
-        },
-        'meta': {
-            'description': 'Larger project tasks and goals',
-            'color': '149e7b',
-        },
-        'question': {
-            'description': 'Further information is requested',
-            'color': 'd876e3',
-        },
-        'research': {
-            'description': '',
-            'color': 'ed8661',
-        },
-        'security': {
-            'description': 'Issues that have security implications',
-            'color': 'ff0000',
-        },
-        'wontfix': {
-            'description': 'This will not be worked on',
-            'color': 'ffffff',
-        }
-    },
-    "technology": {
-        'amd sev': {
-            'description': 'Issues related to AMD SEV',
-            'color': '000000',
-        },
-        'ibm pef': {
-            'description': 'Issues related to IBM PEF',
-            'color': '0043ce',
-        },
-        'intel sgx': {
-            'description': 'Issues related to Intel SGX',
-            'color': '0071c5',
-        },
-        'wasm': {
-            'description': 'Issues related to WebAssembly',
-            'color': '654EF0',
-        },
-        'host-components': {
-            'description': 'Components that live on the host, but not in Keeps',
-            'color': 'f22933',
-        },
-        'syscall': {
-            'description': 'syscall-related issues and PRs',
-            'color': 'a51f3c',
-        },
-    },
-    "infrastructure": {
-        'infrastructure': {
-            'description': 'Improvements or additions to project infrastructure',
-            'color': 'ffdda8',
-        },
-    },
-    "conference": {
-        'conference': {
-            'description': 'Opportunities to talk about Enarx',
-            'color': 'f98918',
-        },
-    },
-    "mentorship": {
-        'mentorship': {
-            'description': 'A request for mentorship on the project.',
-            'color': '0e8a16',
-        },
-    },
-}
-
-REPOS = {
-    "enarx": [ "technology", "infrastructure", "conference", "mentorship" ],
-    "bot": [ "infrastructure" ],
-}
 
 QUERY = '''
 query($owner:String!, $reposCursor:String, $labelsCursor:String) {
@@ -174,7 +63,7 @@ mutation($input: DeleteLabelInput!) {
 }
 '''
 
-if os.environ["GITHUB_EVENT_NAME"] != "schedule":
+if os.environ["GITHUB_EVENT_NAME"] not in {"schedule", "workflow_dispatch"}:
     sys.exit(0)
 
 owner, repo = os.environ["GITHUB_REPOSITORY"].split("/")
@@ -185,6 +74,13 @@ Label management must be performed from your user or organization's .github
 repo. If already enabled there, no more action is necessary.
     """)
     sys.exit(1)
+
+# Open label data from the .github repository.
+with open(sys.argv[1]) as f:
+    input = json.load(f)
+
+LABEL_GROUPS = input["LABEL_GROUPS"]
+REPOS = input["REPOS"]
 
 # Fetch repository data.
 try:
@@ -206,7 +102,7 @@ for repo in result["organization"]["repositories"]["nodes"]:
             current_labels.update(LABEL_GROUPS[group])
     except:
         pass
-    current_labels.update(LABEL_GROUPS[None])
+    current_labels.update(LABEL_GROUPS["DEFAULT"])
     current_labels_names = {l for l in current_labels.keys()}
 
     # Get the existing set of labels on the repo.
@@ -268,7 +164,7 @@ for repo in result["organization"]["repositories"]["nodes"]:
     for name in labels_to_add:
         label_to_create = current_labels[name]
         githubgql.graphql(CREATE_LABEL, input={
-                "id": repo["id"],
+                "repositoryId": repo["id"],
                 "name": name,
                 "color": label_to_create['color'],
                 "description": label_to_create['description']
