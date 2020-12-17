@@ -3,9 +3,9 @@
 
 import githubgql
 
-import json
 import sys
 import os
+import yaml
 
 QUERY = '''
 query($owner:String!, $reposCursor:String, $labelsCursor:String) {
@@ -77,7 +77,7 @@ repo. If already enabled there, no more action is necessary.
 
 # Open label data from the .github repository.
 with open(sys.argv[1]) as f:
-    input = json.load(f)
+    input = yaml.safe_load(f)
 
 LABEL_GROUPS = input["LABEL_GROUPS"]
 REPOS = input["REPOS"]

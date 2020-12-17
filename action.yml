@@ -8,7 +8,9 @@ branding:
 runs:
   using: "composite"
   steps:
-    - run: $GITHUB_ACTION_PATH/src/mirror-labels "$GITHUB_WORKSPACE/organization-labels.json"
+    - run: pip install -qqq pyyaml
+      shell: bash
+    - run: $GITHUB_ACTION_PATH/src/mirror-labels "$GITHUB_WORKSPACE/organization-labels.yml"
       shell: bash
     - run: bash -c "env | sort"
       shell: bash
