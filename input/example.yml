@@ -49,5 +49,5 @@ LABEL_GROUPS:
 REPOS:
   pull-request-responsibility:
     - infrastructure
-  organization-labels:
+  manage-your-labels:
     - infrastructure
