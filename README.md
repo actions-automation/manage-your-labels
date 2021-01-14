@@ -41,6 +41,9 @@ jobs:
 
 To make sure everything works, you'll need to ensure a personal access token
 with the `public_repository` scope is available via the `BOT_TOKEN` environment
-variable (the example above uses a repository [secret](https://docs.github.com/en/free-pro-team@latest/actions/reference/encrypted-secrets)).
+variable (the example above uses a repository
+[secret](https://docs.github.com/en/free-pro-team@latest/actions/reference/encrypted-secrets)).
+The account used to create the PAT must also have permission to edit labels on
+the repository you want to manage.
 
 From there, the action should work its magic!

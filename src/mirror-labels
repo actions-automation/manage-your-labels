@@ -98,7 +98,7 @@ for repo in result["organization"]["repositories"]["nodes"]:
     # Construct the set of labels that should be on this repo.
     current_labels = {}
     try:
-        for group in REPOS[repo["name"]]:
+        for group in REPOS[repo['name']]:
             current_labels.update(LABEL_GROUPS[group])
     except:
         pass
@@ -123,11 +123,18 @@ for repo in result["organization"]["repositories"]["nodes"]:
     if len(to_be_renamed) > 0:
         for name in to_be_renamed:
             print(f"{owner}/{repo['name']}: renaming label {name} to {all_old_names[name]}")
-            githubgql.graphql(UPDATE_LABEL, input={
-                    "id": existing_labels[name]["id"],
-                    "name": all_old_names[name]
-                }
-            )
+            try:
+                githubgql.graphql(UPDATE_LABEL, input={
+                        "id": existing_labels[name]["id"],
+                        "name": all_old_names[name]
+                    }
+                )
+            except githubgql.GraphQLError as e:
+                if(e.errors[0]['type'] == "FORBIDDEN"):
+                    print(f"Cannot edit labels on {repo['name']}. Please ensure bot has permission to create and edit labels.")
+                    continue
+                else:
+                    raise
 
         # To prevent actions being taken on stale fetch data, defer
         # further processing after renames happen (if they happen).
@@ -163,29 +170,50 @@ for repo in result["organization"]["repositories"]["nodes"]:
     # Add new labels, and delete unused ones.
     for name in labels_to_add:
         label_to_create = current_labels[name]
-        githubgql.graphql(CREATE_LABEL, input={
-                "repositoryId": repo["id"],
-                "name": name,
-                "color": label_to_create['color'],
-                "description": label_to_create['description']
-            }
-        )
+        try:
+            githubgql.graphql(CREATE_LABEL, input={
+                    "repositoryId": repo["id"],
+                    "name": name,
+                    "color": label_to_create['color'],
+                    "description": label_to_create['description']
+                }
+            )
+        except githubgql.GraphQLError as e:
+            if(e.errors[0]['type'] == "FORBIDDEN"):
+                print(f"Cannot edit labels on {repo['name']}. Please ensure bot has permission to create and edit labels.")
+                continue
+            else:
+                raise
     for name in labels_to_delete:
         id_to_delete = existing_labels[name]["id"]
-        githubgql.graphql(DELETE_LABEL, input={
-                "id": id_to_delete
-            }
-        )
+        try:
+            githubgql.graphql(DELETE_LABEL, input={
+                    "id": id_to_delete
+                }
+            )
+        except githubgql.GraphQLError as e:
+            if(e.errors[0]['type'] == "FORBIDDEN"):
+                print(f"Cannot edit labels on {repo['name']}. Please ensure bot has permission to create and edit labels.")
+                continue
+            else:
+                raise
 
     # If a label needs to be edited, perform the edit.
     for name in labels_to_edit:
-        githubgql.graphql(UPDATE_LABEL, input={
-                "id": existing_labels[name]["id"],
-                "name": name,
-                "color": current_labels[name]["color"],
-                "description": current_labels[name]['description']
-            }
-        )
+        try:
+            githubgql.graphql(UPDATE_LABEL, input={
+                    "id": existing_labels[name]["id"],
+                    "name": name,
+                    "color": current_labels[name]["color"],
+                    "description": current_labels[name]['description']
+                }
+            )
+        except githubgql.GraphQLError as e:
+            if(e.errors[0]['type'] == "FORBIDDEN"):
+                print(f"Cannot edit labels on {repo['name']}. Please ensure bot has permission to create and edit labels.")
+                continue
+            else:
+                raise
 
 print()
 print(" --- LABEL SYNC COMPLETE --- ")
