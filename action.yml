@@ -8,7 +8,9 @@ branding:
 runs:
   using: "composite"
   steps:
-    - run: pip install -qqq pyyaml
+    - run: python3 -m pip install --upgrade pip
+      shell: bash
+    - run: python3 -m pip install -qqq githubgql pyyaml
       shell: bash
     - run: $GITHUB_ACTION_PATH/src/mirror-labels "$GITHUB_WORKSPACE/manage-your-labels.yml"
       shell: bash
