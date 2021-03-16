@@ -14,6 +14,17 @@ Github-specific community health files, as per the
 instance of it is active -- otherwise, conflicts between competing
 configurations may happen.
 
+### Authenticating with Github
+
+To make sure everything works, you'll need to ensure a personal access token
+with the `public_repository` scope is available via the `BOT_TOKEN` environment
+variable. The account used to create the PAT must also have permission to edit labels on
+the repository you want to manage.
+
+Following the guide over on the [`pull-request-responsibility`](https://github.com/actions-automation/pull-request-responsibility#authenticating-with-github) repo should suffice.
+
+### Configuration
+
 `manage-your-labels` uses a config file stored at `manage-your-labels.yml`
 within the top-level directory of the `.github` repo for label management. You
 can read more about how to set up that configuration and see an example in the
@@ -38,12 +49,5 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-automation/manage-your-labels@main
 ```
-
-To make sure everything works, you'll need to ensure a personal access token
-with the `public_repository` scope is available via the `BOT_TOKEN` environment
-variable (the example above uses a repository
-[secret](https://docs.github.com/en/free-pro-team@latest/actions/reference/encrypted-secrets)).
-The account used to create the PAT must also have permission to edit labels on
-the repository you want to manage.
 
 From there, the action should work its magic!
