@@ -21,7 +21,7 @@ with the `public_repository` scope is available via the `BOT_TOKEN` environment
 variable. The account used to create the PAT must also have permission to edit labels on
 the repository you want to manage.
 
-Following the guide over on the [`pull-request-responsibility`](https://github.com/actions-automation/pull-request-responsibility#authenticating-with-github) repo should suffice.
+Following the guide over on the [`pull-request-responsibility`](https://github.com/actions-automation/pull-request-responsibility#github-authentication-with-a-personal-access-token) repo should suffice.
 
 ### Configuration
 
