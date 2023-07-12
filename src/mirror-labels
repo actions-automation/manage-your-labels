@@ -10,7 +10,7 @@ import yaml
 QUERY = '''
 query($owner:String!, $reposCursor:String, $labelsCursor:String) {
     organization(login:$owner) {
-        repositories(first:100, after:$reposCursor) {
+        repositories(first:100, after:$reposCursor, isArchived:false) {
             pageInfo { endCursor hasNextPage }
             nodes {
                 name
